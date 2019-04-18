@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 import sys
+from datetime import datetime, timedelta, timezone, date
 
 stopWords = set(stopwords.words('english'))
 punctuation = set(['.',',','?','!','’',"\'","\'s",'@',':','(',')','%'])
@@ -67,6 +68,73 @@ def getGeneralData(data):
                     wordDict[w]+=1
     return wordDict
 
+# How to handle unix epoch time
+# timeExample = data[len(data)-1]["created_at"]
+# utc_time = datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=timeExample)
+# print(utc_time.date())
+
+def getTimeData(data):
+    # d1 = date(2019,3,31)
+    # d2 = date(2019,4,12)
+    # tpLbl = []
+    # tpLbl.append(d1)
+    # temp = []
+    # temp.append(12)
+    # dt = d2-d1
+    # ctr=1
+    # while(dt.days>1):
+    #     newDate = d1+timedelta(days=ctr)
+    #     ctr+=1
+    #     tpLbl.append(newDate)
+    #     temp.append(0)
+    #     dt = d2-newDate
+    # tpLbl.append(d2)
+    # temp.append(23)
+    # print(tpLbl)
+    # print(temp)
+    # sys.exit()
+    labels = []
+    messagesSentPerDay = []
+    ct = 0
+    msgCt = 0
+    for i in range(len(data)-1,0,-1):
+        # print(i)
+        # if (i<len(data)-10): break
+        message = data[i]
+        timeStamp = message["created_at"]
+        utc_time = datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=timeStamp)
+        utc_time = utc_time.date()
+        stRep = set(labels)
+        if (utc_time not in stRep):
+            # print("add")
+            if (i!=len(data)-1):
+                # print("hit")
+                # print(len(labels))
+                # print(ct)
+                dt = utc_time-labels[ct-1]
+                # print(dt)
+                ctr=1
+                while(dt.days>1):
+                    newDate = labels[ct-1]+timedelta(days=ctr)
+                    # print(newDate)
+                    ctr+=1
+                    labels.append(newDate)
+                    # ct = len(labels)
+                    messagesSentPerDay.append(0)
+                    dt = utc_time-newDate
+                messagesSentPerDay.append(msgCt)
+            labels.append(utc_time)
+            msgCt=0
+        ct=len(labels)
+        # print(labels)
+        msgCt+=1
+    messagesSentPerDay.append(msgCt)
+    for i in range(len(labels)):
+        labels[i] = str(labels[i])
+    # print(len(labels))
+    # print(len(messagesSentPerDay))
+    return (labels,messagesSentPerDay)
+
 def mostCommon(n,words):
     ordered = sorted(words.items(), key=lambda x:x[1],reverse=True)
     x=np.arange(n)
@@ -121,6 +189,13 @@ def wordConcentration(personData,genData,tag):
         print("This person contributed to",str(float(ratio*100)),"percent of the occurences of",tag)
         print("=======")
 
+def plotTimeData(timeData):
+    dates = timeData[0]
+    messagesSent = timeData[1]
+    plt.plot_date(x=dates,y=messagesSent, fmt="r-")
+    plt.xticks(np.arange(0,len(dates),20))
+    plt.show()
+    
 def getUserFavoriteStats(data):
     persons = {}
     for messages in data:
@@ -307,14 +382,18 @@ def loadPickleData(filepath):
 
 
 #=======================================================================================================================
-words_gen = loadPickleData('H3N.pickle')
+# diff = data[0]["created_at"]-data[len(data)-1]["created_at"]
+# print(diff)
+timeData = getTimeData(data)
+plotTimeData(timeData)
+# words_gen = loadPickleData('H3N.pickle')
 # words_per = getPersonData("Phillip Archuleta", data)
 # wordConcentration(words_per,words_gen,"balloons")
 # mostPopular = getUserFavoriteStats(data)
 # print(userIdToName(data))
 # fanLst = getFans("Gary Chen", data)
 # rankedLst = rankedFans(5,fanLst)
-mostPopular = getUserFavoriteStats(data)
+# mostPopular = getUserFavoriteStats(data)
 # mostFavoriter = getFavoriterStats(data)
 # mostCommon(10,mostPopular)
 # wordRange(80,90,mostPopular)
