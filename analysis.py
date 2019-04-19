@@ -16,7 +16,14 @@ data = ""
 with open('message.json', encoding='utf-8') as f:
     data = json.load(f)
 
-# Example of data
+# Example of System Data
+# {"attachments":[],"avatar_url":null,"created_at":1534094206,"favorited_by":[],"group_id":"42549431",
+# "id":"153409420685189988","name":"GroupMe","sender_id":"system","sender_type":"system",
+# "source_guid":"6a83889080810136b6ed22000b698c65","system":true,
+# "text":"Dan Foley has joined the group","user_id":"system",
+# "event":{"type":"membership.announce.joined","data":{"user":{"id":43054355,"nickname":"Dan Foley"}}}}
+
+# Example of user data
 # {'attachments': [], 'avatar_url': 'https://i.groupme.com/1022x1024.jpeg.c99eabb4edd64e50be39b03a87766afe', 'created_at': 1555261657, 
 #     'favorited_by': ['25032862', '62590867'], 'group_id': '42549431', 
 #     'id': '155526165735503974', 'name': 'Will Baker', 'sender_id': '45231839', 
@@ -25,8 +32,16 @@ with open('message.json', encoding='utf-8') as f:
 #     'text': 'https://purdue.ca1.qualtrics.com/jfe/form/SV_3kmvDl2Fpx5G3FH\n\nYou’ll receive a lifetime of happiness taking this especially because it is only multiple choice questions in simple form.', 
 #     'user_id': '45231839', 'platform': 'gm'}
 
+# How to handle unix epoch time
+# timeExample = data[len(data)-1]["created_at"]
+# utc_time = datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=timeExample)
+# print(utc_time.date())
 
 def getPersonData(name,data):
+    idToName = userIdToName(data)
+    if (isValidUser(name,idToName)==False):
+        print("NameNotFoundError: This person was not in the group chat.")
+        return "Error"   
     wordDict = {}
     texts = []
     for messages in data:
@@ -66,11 +81,6 @@ def getGeneralData(data):
                 else:
                     wordDict[w]+=1
     return wordDict
-
-# How to handle unix epoch time
-# timeExample = data[len(data)-1]["created_at"]
-# utc_time = datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=timeExample)
-# print(utc_time.date())
 
 def getTimeData(data):
     labels = []
@@ -115,6 +125,61 @@ def getTimeData(data):
     # print(len(messagesSentPerDay))
     return (labels,messagesSentPerDay)
 
+def userIdToName(data):
+    idToName = {}
+    nameToId = {}
+    for i in range(len(data)-1,-1,-1):
+        messages = data[i]
+    # for messages in data:
+        try:
+            if (messages["user_id"]=="system"):
+                # print(messages["event"]["type"])
+                if ("changed name" in messages["text"]):
+                    indx = -1
+                    text = messages["text"]
+                    text = text.replace(" changed name",'')
+                    for word in text.split():
+                        if (word=="to"):
+                            break
+                        else:
+                            indx+=len(word)
+                        indx+=1
+                    origName = text[0:indx]
+                    origId = nameToId[origName]
+                    newName = text[indx+4:len(text)]
+                    newId = origId
+                    idToName[newId]=newName
+                    nameToId[newName]=newId
+                    continue
+                if (messages["event"]["type"]=="membership.announce.joined" or messages["event"]["type"]=="membership.announce.added"):
+                    if (messages["event"]["type"]=="membership.announce.joined"):
+                        id = str(messages["event"]["data"]["user"]["id"])
+                        name = messages["event"]["data"]["user"]["nickname"]
+                        idToName[id]=name
+                        nameToId[name]=id
+                    else:
+                        for user in messages["event"]["data"]["added_users"]:
+                            id = str(user["id"])
+                            name = user["nickname"]
+                            idToName[id]=name
+                            nameToId[name]=id
+        except:
+            continue
+    # print(idToName)
+    return idToName
+    # for messages in data:
+    #     valueSet = set(idToName.values())
+    #     if (messages["name"]!="GroupMe"):
+    #         if(messages["name"] not in valueSet):
+    #             idToName[messages["user_id"]]=messages["name"]
+    #         else:
+    #             continue
+    # return idToName
+
+def isValidUser(name,idToName):
+    names = set(idToName.values())
+    return (name in names)
+
 def mostCommon(n,words):
     ordered = sorted(words.items(), key=lambda x:x[1],reverse=True)
     x=np.arange(n)
@@ -156,6 +221,7 @@ def lookupWord(tag,words):
     except:
         print("This word doesn't exist or wasn't counted because it's a useless word")
         return False
+
 def wordConcentration(personData,genData,tag):
     personCt = lookupWord(tag,personData)
     genCt = lookupWord(tag,genData)
@@ -292,18 +358,9 @@ def rankedFans(n,fans):
     plt.show()
     return rankedFans
 
-def userIdToName(data):
-    idToName = {}
-    for messages in data:
-        valueSet = set(idToName.values())
-        if (messages["name"]!="GroupMe"):
-            if(messages["name"] not in valueSet):
-                idToName[messages["user_id"]]=messages["name"]
-            else:
-                continue
-    return idToName
-
-def getUserActivityRank(data):
+def getUserActivityRank(data,idToName):
+    userLst = idToName.values()
+    keySet = 0
     persons = {}
     for messages in data:
         keySet = set(persons.keys())
@@ -314,7 +371,11 @@ def getUserActivityRank(data):
                 persons[messages["name"]]+=1
         else:
             continue
+    for user in userLst:
+        if (user not in keySet):
+            persons[user]=0
     ordered = sorted(persons.items(), key=lambda x:x[1],reverse=True)
+    # print(ordered)
     return ordered
 
 def getMostActiveUsers(persons,n):
@@ -361,7 +422,10 @@ def getActiveUsersRange(low,high,persons):
     plt.show() 
     return activeUsers
 
-def lookupUserActivityStats(person,users):
+def lookupUserActivityStats(person,users,idToName):
+    if (isValidUser(person,idToName)==False):
+        print("NameNotFoundError: This person was not in the group chat.")
+        return "Error"
     count = 0
     messageCt = messagesSentCount(users)
     for user in users:
@@ -371,7 +435,6 @@ def lookupUserActivityStats(person,users):
             print(person,"has an activity rank of",count,"out of",len(users),"users")
             print(person,"has sent",str(float(user[1]/messageCt)*100),"percent of all messages in this group chat")
             return count
-    return "This User Does Not Exist in the Group Chat"
 
 def reverseLookup(n,users):
     try:
@@ -393,6 +456,7 @@ def pickleData(filename,words):
     file = open(fn,'wb')
     pickle.dump(words,file, protocol=pickle.HIGHEST_PROTOCOL)
     file.close()
+
 def loadPickleData(filepath):
     file = open(filepath,'rb')
     data = pickle.load(file)
@@ -403,8 +467,9 @@ def loadPickleData(filepath):
 #=======================================================================================================================
 # diff = data[0]["created_at"]-data[len(data)-1]["created_at"]
 # print(diff)
-timeData = getTimeData(data)
-plotTimeData(timeData,beginningDate=date(year=2018,month=11,day=10),endDate=date(year=2018,month=11,day=28))
+idToName =userIdToName(data)
+# timeData = getTimeData(data)
+# plotTimeData(timeData)
 # words_gen = loadPickleData('H3N.pickle')
 # words_per = getPersonData("Phillip Archuleta", data)
 # wordConcentration(words_per,words_gen,"balloons")
@@ -417,8 +482,8 @@ plotTimeData(timeData,beginningDate=date(year=2018,month=11,day=10),endDate=date
 # mostCommon(10,mostPopular)
 # wordRange(80,90,mostPopular)
 # lookupWord("purdue",words)
-# users = getUserActivityRank(data)
+users = getUserActivityRank(data,idToName)
 # activeUsers = getMostActiveUsers(users,5)
 # activeUsers = getActiveUsersRange(10,20,users)
-# rank = lookupUserActivityStats("Joe Mislansky",users)
+rank = lookupUserActivityStats("Dan Foley",users,idToName)
 # rankedUser = reverseLookup(len(users)-5,users)
