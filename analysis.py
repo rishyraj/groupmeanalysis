@@ -6,7 +6,6 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
-import sys
 from datetime import datetime, timedelta, timezone, date
 
 stopWords = set(stopwords.words('english'))
@@ -74,25 +73,6 @@ def getGeneralData(data):
 # print(utc_time.date())
 
 def getTimeData(data):
-    # d1 = date(2019,3,31)
-    # d2 = date(2019,4,12)
-    # tpLbl = []
-    # tpLbl.append(d1)
-    # temp = []
-    # temp.append(12)
-    # dt = d2-d1
-    # ctr=1
-    # while(dt.days>1):
-    #     newDate = d1+timedelta(days=ctr)
-    #     ctr+=1
-    #     tpLbl.append(newDate)
-    #     temp.append(0)
-    #     dt = d2-newDate
-    # tpLbl.append(d2)
-    # temp.append(23)
-    # print(tpLbl)
-    # print(temp)
-    # sys.exit()
     labels = []
     messagesSentPerDay = []
     ct = 0
@@ -189,13 +169,52 @@ def wordConcentration(personData,genData,tag):
         print("This person contributed to",str(float(ratio*100)),"percent of the occurences of",tag)
         print("=======")
 
-def plotTimeData(timeData):
+def plotTimeData(timeData,beginningDate=False,endDate=False):
     dates = timeData[0]
     messagesSent = timeData[1]
-    plt.plot_date(x=dates,y=messagesSent, fmt="r-")
-    plt.xticks(np.arange(0,len(dates),20))
-    plt.show()
-    
+    if (beginningDate==False and endDate==False):
+        plt.plot_date(x=dates,y=messagesSent, fmt="r-")
+        plt.xticks(np.arange(0,len(dates),20))
+        plt.show()
+    else:
+        if (isinstance(beginningDate,date)==False or isinstance(endDate,date)==False):
+            print("TypeError: The format of the given date is wrong, make sure that the dates are instances of datetime.date")
+            return "Error"
+        try:
+            begIndx = dates.index(str(beginningDate))
+            endIndx = dates.index(str(endDate))
+            if (begIndx > endIndx):
+                userInpt = input("FormatError: endDate is before beginningDate, would you like to switch the two dates?\n")
+                userInpt = userInpt.lower()
+                if (userInpt=="yes"):
+                    temp = begIndx
+                    begIndx=endIndx
+                    endIndx=temp
+                else:
+                    print("This funtion is now exiting...")
+                    return "Error"
+            if (begIndx == endIndx):
+                print("FormatError: make sure that beginningDate is not the same as endDate, there needs to be at least a day separation")
+                return "Error"
+            newDates = []
+            newMsg = []
+            for i in range(begIndx,endIndx+1):
+                newDates.append(dates[i])
+                newMsg.append(messagesSent[i])
+            plt.plot_date(x=newDates,y=newMsg,fmt="r-")
+            delta = endIndx-begIndx
+            modifier = int(delta/20) + 2
+            if (modifier == 0):
+                modifier = 3
+            if (delta < 12):
+                modifier = 1
+            plt.xticks(np.arange(0,len(newDates),modifier))
+            plt.show()
+        except ValueError:
+            print("OutOfBoundsError: This date is outside the range of the lifespan of this group chat, make sure your dates fall within the range of the group chat lifespan")
+        except:
+            print("An Error Occured.")
+
 def getUserFavoriteStats(data):
     persons = {}
     for messages in data:
@@ -385,7 +404,7 @@ def loadPickleData(filepath):
 # diff = data[0]["created_at"]-data[len(data)-1]["created_at"]
 # print(diff)
 timeData = getTimeData(data)
-plotTimeData(timeData)
+plotTimeData(timeData,beginningDate=date(year=2018,month=11,day=10),endDate=date(year=2018,month=11,day=28))
 # words_gen = loadPickleData('H3N.pickle')
 # words_per = getPersonData("Phillip Archuleta", data)
 # wordConcentration(words_per,words_gen,"balloons")
@@ -401,5 +420,5 @@ plotTimeData(timeData)
 # users = getUserActivityRank(data)
 # activeUsers = getMostActiveUsers(users,5)
 # activeUsers = getActiveUsersRange(10,20,users)
-# rank = lookupUserActivityStats("Gary Chen",users)
+# rank = lookupUserActivityStats("Joe Mislansky",users)
 # rankedUser = reverseLookup(len(users)-5,users)
