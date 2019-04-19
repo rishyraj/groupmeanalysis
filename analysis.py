@@ -125,6 +125,58 @@ def getTimeData(data):
     # print(len(messagesSentPerDay))
     return (labels,messagesSentPerDay)
 
+def getGeneralDayData(data,date):
+    wordDict = {}
+    texts = []
+    for messages in data:
+        timeStamp = messages["created_at"]
+        utc_time = datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=timeStamp)
+        utc_time = utc_time.date()
+        if (utc_time==date):
+            texts.append(messages["text"])
+    for t in texts:
+        if (isinstance(t,str)):
+            t = t.lower()
+        else:
+            continue
+        tokenized_sent = word_tokenize(t)
+        for w in tokenized_sent:
+            keySet = set(wordDict.keys())
+            if (w not in stopWords) and (w not in punctuation):
+                if (w not in keySet):
+                    wordDict[w]=1
+                else:
+                    wordDict[w]+=1
+    return wordDict
+
+def getPersonDayData(name,data,date):
+    idToName = userIdToName(data)
+    if (isValidUser(name,idToName)==False):
+        print("NameNotFoundError: This person was not in the group chat.")
+        return "Error"   
+    wordDict = {}
+    texts = []
+    for messages in data:
+        timeStamp = messages["created_at"]
+        utc_time = datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=timeStamp)
+        utc_time = utc_time.date()
+        if (messages["name"]==name and utc_time==date):
+            texts.append(messages["text"])
+    for t in texts:
+        if (isinstance(t,str)):
+            t = t.lower()
+        else:
+            continue
+        tokenized_sent = word_tokenize(t)
+        for w in tokenized_sent:
+            keySet = set(wordDict.keys())
+            if (w not in stopWords) and (w not in punctuation):
+                if (w not in keySet):
+                    wordDict[w]=1
+                else:
+                    wordDict[w]+=1
+    return wordDict
+
 def userIdToName(data):
     idToName = {}
     nameToId = {}
@@ -182,6 +234,9 @@ def isValidUser(name,idToName):
 
 def mostCommon(n,words):
     ordered = sorted(words.items(), key=lambda x:x[1],reverse=True)
+    if (n>len(ordered)):
+        print("n value is over the list of words said, changing n from",n,"to",len(ordered))
+        n=len(ordered)
     x=np.arange(n)
     x_ticks = []
     y_val = []
@@ -471,7 +526,10 @@ idToName =userIdToName(data)
 # timeData = getTimeData(data)
 # plotTimeData(timeData)
 # words_gen = loadPickleData('H3N.pickle')
+# words_gen_day = getGeneralDayData(data,date(year=2018,month=12,day=4))
 # words_per = getPersonData("Phillip Archuleta", data)
+# words_per_day = getPersonDayData("Phillip Archuleta",data,date(year=2018,month=12,day=4))
+# print(words_per_day)
 # wordConcentration(words_per,words_gen,"balloons")
 # mostPopular = getUserFavoriteStats(data)
 # print(userIdToName(data))
@@ -479,11 +537,11 @@ idToName =userIdToName(data)
 # rankedLst = rankedFans(5,fanLst)
 # mostPopular = getUserFavoriteStats(data)
 # mostFavoriter = getFavoriterStats(data)
-# mostCommon(10,mostPopular)
+# mostCommon(10,words_per_day)
 # wordRange(80,90,mostPopular)
 # lookupWord("purdue",words)
-users = getUserActivityRank(data,idToName)
+# users = getUserActivityRank(data,idToName)
 # activeUsers = getMostActiveUsers(users,5)
 # activeUsers = getActiveUsersRange(10,20,users)
-rank = lookupUserActivityStats("Dan Foley",users,idToName)
+# rank = lookupUserActivityStats("Dan Foley",users,idToName)
 # rankedUser = reverseLookup(len(users)-5,users)
